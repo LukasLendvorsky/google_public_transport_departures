@@ -1,5 +1,5 @@
 """Constants for Google Travel Time."""
-DOMAIN = "google_travel_time"
+DOMAIN = "google_public_transport_departures"
 
 ATTRIBUTION = "Powered by Google"
 

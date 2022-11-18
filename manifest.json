@@ -1,10 +1,11 @@
 {
-  "domain": "google_travel_time",
-  "name": "Google Maps Travel Time",
+  "domain": "google_public_transport_departures",
+  "name": "google_public_transport_departures",
   "documentation": "https://www.home-assistant.io/integrations/google_travel_time",
   "requirements": ["googlemaps==2.5.1"],
-  "codeowners": ["@eifinger"],
+  "codeowners": ["@LukasLendvorsky"],
   "config_flow": true,
   "iot_class": "cloud_polling",
-  "loggers": ["googlemaps"]
+  "loggers": ["googlemaps"],
+  "version": "0.1"
 }

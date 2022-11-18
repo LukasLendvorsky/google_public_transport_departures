@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import logging
 
 from googlemaps import Client
-from googlemaps.distance_matrix import distance_matrix
+from googlemaps.directions import directions
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -101,12 +101,8 @@ class GoogleTravelTimeSensor(SensorEntity):
         if self._matrix is None:
             return None
 
-        _data = self._matrix["rows"][0]["elements"][0]
-        if "duration_in_traffic" in _data:
-            return round(_data["duration_in_traffic"]["value"] / 60)
-        if "duration" in _data:
-            return round(_data["duration"]["value"] / 60)
-        return None
+        _data = datetime.fromtimestamp(self._matrix[0]["timestamp"])
+        return _data
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -133,19 +129,13 @@ class GoogleTravelTimeSensor(SensorEntity):
         if self._matrix is None:
             return None
 
-        res = self._matrix.copy()
-        options = self._config_entry.options.copy()
-        res.update(options)
-        del res["rows"]
-        _data = self._matrix["rows"][0]["elements"][0]
-        if "duration_in_traffic" in _data:
-            res["duration_in_traffic"] = _data["duration_in_traffic"]["text"]
-        if "duration" in _data:
-            res["duration"] = _data["duration"]["text"]
-        if "distance" in _data:
-            res["distance"] = _data["distance"]["text"]
-        res["origin"] = self._resolved_origin
-        res["destination"] = self._resolved_destination
+        res = {}
+        id = 0
+        for row in self._matrix:
+            res["departure_" + str(id)] = row["departure_time"]
+            res["line_" + str(id)] = row["line"]
+            id += 1
+
         return res
 
     @property
@@ -160,33 +150,36 @@ class GoogleTravelTimeSensor(SensorEntity):
 
     def update(self) -> None:
         """Get the latest data from Google."""
-        options_copy = self._config_entry.options.copy()
-        dtime = options_copy.get(CONF_DEPARTURE_TIME)
-        atime = options_copy.get(CONF_ARRIVAL_TIME)
-        if dtime is not None and ":" in dtime:
-            options_copy[CONF_DEPARTURE_TIME] = convert_time_to_utc(dtime)
-        elif dtime is not None:
-            options_copy[CONF_DEPARTURE_TIME] = dtime
-        elif atime is None:
-            options_copy[CONF_DEPARTURE_TIME] = "now"
-
-        if atime is not None and ":" in atime:
-            options_copy[CONF_ARRIVAL_TIME] = convert_time_to_utc(atime)
-        elif atime is not None:
-            options_copy[CONF_ARRIVAL_TIME] = atime
-
-        self._resolved_origin = find_coordinates(self.hass, self._origin)
-        self._resolved_destination = find_coordinates(self.hass, self._destination)
+        now = datetime.now()
 
         _LOGGER.debug(
             "Getting update for origin: %s destination: %s",
-            self._resolved_origin,
-            self._resolved_destination,
+            self._origin,
+            self._destination,
         )
-        if self._resolved_destination is not None and self._resolved_origin is not None:
-            self._matrix = distance_matrix(
-                self._client,
-                self._resolved_origin,
-                self._resolved_destination,
-                **options_copy,
+
+        directions_result = directions(
+            self._client,
+            self._origin,
+            self._destination,
+            mode="transit",
+            departure_time=now,
+            alternatives=True,
+        )
+
+        result = []
+        for route in directions_result:
+            transit = route["legs"][0]["steps"][1]["transit_details"]
+            result.append(
+                {
+                    "line": transit["line"]["short_name"],
+                    "departure_time": datetime.fromtimestamp(
+                        transit["departure_time"]["value"]
+                    ).strftime("%H:%M"),
+                    "timestamp": transit["departure_time"]["value"],
+                }
             )
+
+        result.sort(key=lambda row: row["timestamp"])
+
+        self._matrix = result
