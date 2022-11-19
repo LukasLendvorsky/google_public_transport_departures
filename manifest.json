@@ -1,7 +1,7 @@
 {
-  "domain": "google_public_transport_departures",
-  "name": "google_public_transport_departures",
-  "documentation": "https://www.home-assistant.io/integrations/google_travel_time",
+  "domain": "googole_public_transport_departures",
+  "name": "Google Maps Public Transport Departures",
+  "documentation": "https://github.com/LukasLendvorsky/google_public_transport_departures",
   "requirements": ["googlemaps==4.7.0"],
   "codeowners": ["@LukasLendvorsky"],
   "config_flow": true,
